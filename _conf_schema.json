@@ -1,0 +1,9 @@
+{
+  "enabled": {"description": "启用 QQ 资料查询（仅 aiocqhttp）", "type": "bool", "default": true},
+  "auto_inject": {"description": "自动将发言者及有限 At 对象的资料作为不可信参考注入 system_prompt", "type": "bool", "default": true},
+  "fields": {"description": "允许字段：nickname、card、sex、age、role、title、level；性别年龄仅QQ登记资料，不代表真实身份", "type": "list", "default": ["nickname", "card", "role", "sex", "age"]},
+  "max_at": {"description": "自动查询 At 数量上限（0-10，忽略 @all）", "type": "int", "default": 3},
+  "timeout": {"description": "单次查询总超时秒数（0.2-15，包含并发等待）", "type": "float", "default": 3.0},
+  "cache_ttl": {"description": "最小化资料缓存秒数（0-3600，0关闭；群成员权限每次重新验证）", "type": "int", "default": 60},
+  "cache_size": {"description": "缓存最多条数（1-2048，按账号及会话隔离）", "type": "int", "default": 256}
+}
