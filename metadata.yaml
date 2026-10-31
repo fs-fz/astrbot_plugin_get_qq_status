@@ -1,6 +1,6 @@
 name: astrbot_plugin_get_qq_status
 display_name: QQ 资料上下文
 desc: 通过 OneBot 获取发言者和被 @ 用户的 QQ 资料，注入 LLM 并提供查询工具。
-version: v0.1.0
+version: v0.1.1
 author: local
 astrbot_version: '>=4.29.1'
