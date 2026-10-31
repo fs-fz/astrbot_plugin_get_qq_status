@@ -133,6 +133,29 @@ class Tests(unittest.IsolatedAsyncioTestCase):
             return {'status': 'ok', 'retcode': 0, 'data': await original(action, **kw)}
         e.bot.call_action = wrapped
         self.assertIsInstance(await p._lookup(e, '12345'), dict)
+    async def test_diag_group_self_only(self):
+        p, e = self.make_plugin(), Event(group='444', ats=['67890'])
+        text = '\n'.join([r async for r in p.qqdiag(e)])
+        self.assertIn('get_group_member_info', text)
+        self.assertIn('female', text)
+        self.assertNotIn('nickname', text)
+        self.assertTrue(all(kw['user_id'] == 12345 for _, kw in e.bot.calls))
+        self.assertFalse(p._cache)
+    async def test_diag_private_and_failure(self):
+        p, e = self.make_plugin(), Event()
+        e.bot.fail.add('get_stranger_info')
+        text = '\n'.join([r async for r in p.qqdiag(e)])
+        self.assertIn('调用失败', text)
+        self.assertIn('私聊中跳过', text)
+    async def test_diag_missing_and_null(self):
+        p, e = self.make_plugin(), Event()
+        async def response(action, **kw):
+            return {'user_id': 12345, 'sex': None}
+        e.bot.call_action = response
+        value = await p._diagnose_action(e, 'get_stranger_info', user_id=12345)
+        self.assertEqual(value['sex']['value'], None)
+        self.assertTrue(value['sex']['present'])
+        self.assertFalse(value['age']['present'])
     async def test_unknown_fields_not_invented(self):
         p = self.make_plugin()
         value = p._select('12345', {'user_id': 12345, 'age': None, 'sex': None})

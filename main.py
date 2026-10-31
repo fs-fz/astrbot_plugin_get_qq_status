@@ -216,5 +216,58 @@ class QQStatusPlugin(Star):
         except Exception:
             yield event.plain_result("资料查询失败，正常聊天不受影响。")
 
+    async def _diagnose_action(self, event, action, **params):
+        try:
+            data = await asyncio.wait_for(
+                self._action(event, action, **params),
+                self._number("timeout", 3, 0.2, 15),
+            )
+            uid = self._id(event.get_sender_id())
+            if self._id(data.get("user_id")) != uid:
+                return {"status": "身份不匹配，未展示资料"}
+            if action == "get_group_member_info" and self._id(data.get("group_id")) != self._id(event.get_group_id()):
+                return {"status": "群身份不匹配，未展示资料"}
+            result = {"status": "成功"}
+            for field in ("sex", "age"):
+                if field not in data:
+                    result[field] = {"present": False}
+                else:
+                    value = data[field]
+                    # Only expose bounded scalar fields, never nested/raw profiles.
+                    if value is not None and type(value) not in (str, int, float, bool):
+                        value = "非标量（已隐藏）"
+                    if isinstance(value, str):
+                        value = self._text(value)
+                    result[field] = {"present": True, "value": value, "type": type(data[field]).__name__}
+            return result
+        except asyncio.TimeoutError:
+            return {"status": "超时"}
+        except Exception:
+            return {"status": "调用失败或响应格式错误"}
+
+    @filter.command("qqdiag")
+    async def qqdiag(self, event: AstrMessageEvent):
+        '''仅诊断发言者本人的性别与年龄接口返回，不使用缓存。'''
+        if not self._supported(event):
+            yield event.plain_result("QQ资料功能已关闭或当前平台不支持。")
+            return
+        uid = self._id(event.get_sender_id())
+        if not uid:
+            yield event.plain_result("无法确认当前发言者。")
+            return
+        group = self._id(event.get_group_id())
+        actions = [("get_stranger_info", {"user_id": int(uid), "no_cache": True})]
+        if group:
+            actions.append(("get_group_member_info", {"group_id": int(group), "user_id": int(uid), "no_cache": True}))
+        values = await asyncio.gather(*(self._diagnose_action(event, name, **params) for name, params in actions))
+        report = dict(zip((name for name, _ in actions), values))
+        if not group:
+            report["get_group_member_info"] = {"status": "私聊中跳过，请在群内诊断群成员接口"}
+        yield event.plain_result(
+            "仅诊断你本人；绕过插件缓存。群内执行时结果对群成员可见。\n"
+            + json.dumps(report, ensure_ascii=False, indent=2)
+            + "\npresent=false 表示字段缺失；unknown/null/0 不代表已获取到有效性别或年龄。"
+        )
+
     async def terminate(self):
         self._cache.clear()
