@@ -62,7 +62,9 @@ class QQStatusPlugin(Star):
             result = await call(action, **params)
         if not isinstance(result, dict):
             raise ValueError("Invalid OneBot response")
-        if "status" in result or "retcode" in result:
+        # Bare user profiles have a numeric `status` (online state).
+        # Only protocol envelope markers identify a wrapped response.
+        if "retcode" in result or result.get("status") in ("ok", "failed", "async"):
             if result.get("status", "ok") != "ok" or result.get("retcode", 0) != 0:
                 raise ValueError("OneBot action failed")
             result = result.get("data")

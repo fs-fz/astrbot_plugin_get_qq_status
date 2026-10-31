@@ -133,6 +133,24 @@ class Tests(unittest.IsolatedAsyncioTestCase):
             return {'status': 'ok', 'retcode': 0, 'data': await original(action, **kw)}
         e.bot.call_action = wrapped
         self.assertIsInstance(await p._lookup(e, '12345'), dict)
+    async def test_numeric_profile_status_regression(self):
+        p, e = self.make_plugin(), Event(group='444')
+        async def response(action, **kw):
+            if action == 'get_stranger_info':
+                return {'user_id': 12345, 'status': 10, 'sex': 'female', 'age': 0}
+            return {'user_id': 12345, 'group_id': 444, 'sex': 'unknown', 'age': 0}
+        e.bot.call_action = response
+        value = await p._lookup(e, '12345')
+        self.assertEqual(value['qq_profile_sex'], 'female')
+        self.assertNotIn('qq_profile_age', value)
+        diag = await p._diagnose_action(e, 'get_stranger_info', user_id=12345)
+        self.assertEqual(diag['status'], '成功')
+    async def test_failed_envelope_rejected(self):
+        p, e = self.make_plugin(), Event()
+        async def response(action, **kw):
+            return {'status': 'failed', 'retcode': 1400, 'data': {'user_id': 12345}}
+        e.bot.call_action = response
+        self.assertIsInstance(await p._lookup(e, '12345'), str)
     async def test_diag_group_self_only(self):
         p, e = self.make_plugin(), Event(group='444', ats=['67890'])
         text = '\n'.join([r async for r in p.qqdiag(e)])
